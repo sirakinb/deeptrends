@@ -2,45 +2,84 @@
 
 import React, { useState } from 'react';
 import { Listbox } from '@headlessui/react';
-import { ChevronUpDownIcon } from '@heroicons/react/24/outline';
-import type { ScheduleFormData } from '../types';
+import { ChevronUpDownIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import type { QuerySchedule } from '@/lib/supabase';
 import axios from 'axios';
 
 const frequencies = [
-  { id: 'immediate', name: 'Run Now' },
-  { id: 'daily', name: 'Daily' },
-  { id: 'weekly', name: 'Weekly' },
-  { id: 'weekend', name: 'Weekend' },
+  { id: 'immediate', name: 'Run Now', description: 'Execute the query immediately' },
+  { id: 'daily', name: 'Daily', description: 'Run every day at the specified time' },
+  { id: 'weekly', name: 'Weekly', description: 'Run once a week on your chosen day' },
+] as const;
+
+const weekDays = [
+  { id: 'monday', name: 'Monday' },
+  { id: 'tuesday', name: 'Tuesday' },
+  { id: 'wednesday', name: 'Wednesday' },
+  { id: 'thursday', name: 'Thursday' },
+  { id: 'friday', name: 'Friday' },
+  { id: 'saturday', name: 'Saturday' },
+  { id: 'sunday', name: 'Sunday' },
+] as const;
+
+const models = [
+  { id: 'sonar-deep-research', name: 'Sonar Deep Research' },
+  { id: 'sonar-pro', name: 'Sonar Pro' },
 ];
 
+type WeekDay = typeof weekDays[number]['id'];
+
+interface FormData {
+  query: string;
+  model: string;
+  frequency: QueryFrequency;
+  time: string;
+  week_day: WeekDay;
+}
+
 interface QueryFormProps {
-  onSubmit: (data: ScheduleFormData) => void;
+  onSubmit: (schedule: Partial<QuerySchedule>) => void;
 }
 
 export function QueryForm({ onSubmit }: QueryFormProps) {
-  const [formData, setFormData] = useState<ScheduleFormData>({
+  const [formData, setFormData] = useState<FormData>({
     query: '',
+    model: 'pplx-7b-online',
     frequency: 'immediate',
     time: '09:00',
+    week_day: 'monday',
   });
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<string>('');
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setResult(null);
-    setProgress(0);
-    
+    if (isSubmitting) return;
+
     try {
-      // Start query process
-      setLoadingStage('Initiating deep research analysis...');
+      setIsSubmitting(true);
+      setLoading(true);
+      setResult(null);
+      setError(null);
       setProgress(20);
 
       // Send query to backend
-      const response = await axios.post('/api/query', formData);
+      const response = await axios.post('/api/query', {
+        query: formData.query,
+        model: formData.model,
+        ...(formData.frequency !== 'immediate' && {
+          schedule: {
+            frequency: formData.frequency,
+            time: formData.time,
+            week_day: formData.week_day,
+            next_run: new Date().toISOString()
+          }
+        })
+      });
       
       setLoadingStage('Synthesizing research findings...');
       setProgress(80);
@@ -51,32 +90,48 @@ export function QueryForm({ onSubmit }: QueryFormProps) {
         setLoadingStage('Research complete!');
         setProgress(100);
       } else {
-        // Update UI for scheduled queries
-        onSubmit(formData);
+        // For scheduled queries, notify the parent component
+        onSubmit({
+          id: response.data.scheduleId,
+          query: formData.query,
+          frequency: formData.frequency,
+          time: formData.time,
+          week_day: formData.week_day,
+          model: formData.model,
+          is_active: true,
+          status: 'scheduled',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+        
+        // Show success message
+        setResult('Schedule created successfully!');
         
         // Reset form for scheduled queries
         setFormData({
           query: '',
+          model: 'pplx-7b-online',
           frequency: 'immediate',
           time: '09:00',
+          week_day: 'monday',
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting query:', error);
-      setLoadingStage('Error: Research analysis failed. Please try again.');
-      setProgress(100);
-      alert('Failed to complete research. Please try again.');
+      setError(error.response?.data?.error || 'An unexpected error occurred');
     } finally {
-      setTimeout(() => {
-        setLoading(false);
-        setLoadingStage('');
-        setProgress(0);
-      }, 1500); // Keep the final state visible a bit longer
+      setLoading(false);
+      setIsSubmitting(false);
+      setProgress(0);
     }
   };
 
+  const selectedFrequency = frequencies.find(f => f.id === formData.frequency);
+  const selectedWeekDay = weekDays.find(d => d.id === formData.week_day);
+  const selectedModel = models.find(m => m.id === formData.model);
+
   return (
-    <form onSubmit={handleSubmit} className="card">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
         <div>
           <label htmlFor="query" className="block text-sm font-medium mb-1">
@@ -84,50 +139,83 @@ export function QueryForm({ onSubmit }: QueryFormProps) {
           </label>
           <textarea
             id="query"
-            className="input-field w-full h-32 resize-none"
+            rows={4}
+            className="input-field w-full"
             value={formData.query}
             onChange={(e) => setFormData({ ...formData, query: e.target.value })}
+            placeholder="Enter your research query..."
             required
-            placeholder="Enter your research query here..."
             disabled={loading}
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Frequency</label>
-            <Listbox
-              value={formData.frequency}
-              onChange={(value) => setFormData({ ...formData, frequency: value as 'immediate' | 'daily' | 'weekly' | 'weekend' })}
-              disabled={loading}
-            >
-              <div className="relative">
-                <Listbox.Button className="input-field w-full flex justify-between items-center">
-                  <span className="block truncate">
-                    {frequencies.find(f => f.id === formData.frequency)?.name}
-                  </span>
-                  <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
-                </Listbox.Button>
-                <Listbox.Options className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg">
-                  {frequencies.map((frequency) => (
-                    <Listbox.Option
-                      key={frequency.id}
-                      value={frequency.id}
-                      className={({ active }) =>
-                        `cursor-pointer select-none relative py-2 px-4 ${
-                          active ? 'bg-blue-600 text-white' : 'text-gray-100'
-                        }`
-                      }
-                    >
-                      {frequency.name}
-                    </Listbox.Option>
-                  ))}
-                </Listbox.Options>
-              </div>
-            </Listbox>
-          </div>
+        <div>
+          <Listbox
+            value={selectedModel}
+            onChange={(model) => setFormData({ ...formData, model: model.id })}
+            disabled={loading}
+          >
+            <div className="relative">
+              <Listbox.Label className="block text-sm font-medium mb-1">Model</Listbox.Label>
+              <Listbox.Button className="input-field w-full text-left flex justify-between items-center">
+                <span>{selectedModel?.name}</span>
+                <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
+              </Listbox.Button>
+              <Listbox.Options className="absolute z-10 mt-1 w-full bg-gray-800 rounded-md shadow-lg max-h-60 overflow-auto focus:outline-none">
+                {models.map((model) => (
+                  <Listbox.Option
+                    key={model.id}
+                    value={model}
+                    className={({ active }) =>
+                      `relative cursor-pointer select-none py-2 px-4 ${
+                        active ? 'bg-blue-600' : ''
+                      }`
+                    }
+                  >
+                    {model.name}
+                  </Listbox.Option>
+                ))}
+              </Listbox.Options>
+            </div>
+          </Listbox>
+        </div>
 
-          {formData.frequency !== 'immediate' && (
+        <div>
+          <Listbox
+            value={selectedFrequency}
+            onChange={(frequency) => setFormData({ ...formData, frequency: frequency.id })}
+            disabled={loading}
+          >
+            <div className="relative">
+              <Listbox.Label className="block text-sm font-medium mb-1">Frequency</Listbox.Label>
+              <Listbox.Button className="input-field w-full text-left flex justify-between items-center">
+                <span>{selectedFrequency?.name}</span>
+                <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
+              </Listbox.Button>
+              <Listbox.Options className="absolute z-10 mt-1 w-full bg-gray-800 rounded-md shadow-lg max-h-60 overflow-auto focus:outline-none">
+                {frequencies.map((frequency) => (
+                  <Listbox.Option
+                    key={frequency.id}
+                    value={frequency}
+                    className={({ active }) =>
+                      `relative cursor-pointer select-none py-2 px-4 ${
+                        active ? 'bg-blue-600' : ''
+                      }`
+                    }
+                  >
+                    <div>
+                      <div className="font-medium">{frequency.name}</div>
+                      <div className="text-sm text-gray-400">{frequency.description}</div>
+                    </div>
+                  </Listbox.Option>
+                ))}
+              </Listbox.Options>
+            </div>
+          </Listbox>
+        </div>
+
+        {formData.frequency !== 'immediate' && (
+          <div className="space-y-4">
             <div>
               <label htmlFor="time" className="block text-sm font-medium mb-1">
                 Time (EST)
@@ -138,12 +226,45 @@ export function QueryForm({ onSubmit }: QueryFormProps) {
                 className="input-field w-full"
                 value={formData.time}
                 onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                required={formData.frequency !== 'immediate'}
+                required
                 disabled={loading}
               />
             </div>
-          )}
-        </div>
+
+            {formData.frequency === 'weekly' && (
+              <div>
+                <Listbox
+                  value={selectedWeekDay}
+                  onChange={(day) => setFormData({ ...formData, week_day: day.id })}
+                  disabled={loading}
+                >
+                  <div className="relative">
+                    <Listbox.Label className="block text-sm font-medium mb-1">Day of Week</Listbox.Label>
+                    <Listbox.Button className="input-field w-full text-left flex justify-between items-center">
+                      <span>{selectedWeekDay?.name}</span>
+                      <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
+                    </Listbox.Button>
+                    <Listbox.Options className="absolute z-10 mt-1 w-full bg-gray-800 rounded-md shadow-lg max-h-60 overflow-auto focus:outline-none">
+                      {weekDays.map((day) => (
+                        <Listbox.Option
+                          key={day.id}
+                          value={day}
+                          className={({ active }) =>
+                            `relative cursor-pointer select-none py-2 px-4 ${
+                              active ? 'bg-blue-600' : ''
+                            }`
+                          }
+                        >
+                          {day.name}
+                        </Listbox.Option>
+                      ))}
+                    </Listbox.Options>
+                  </div>
+                </Listbox>
+              </div>
+            )}
+          </div>
+        )}
 
         {loading && (
           <div className="space-y-2">
@@ -168,10 +289,17 @@ export function QueryForm({ onSubmit }: QueryFormProps) {
           {loading ? 'Researching...' : formData.frequency === 'immediate' ? 'Run Query Now' : 'Create Schedule'}
         </button>
 
+        {error && (
+          <div className="mt-4 p-4 bg-red-900/50 rounded-lg border border-red-700">
+            <h3 className="text-sm font-medium text-red-400 mb-1">Error</h3>
+            <div className="text-red-100">{error}</div>
+          </div>
+        )}
+
         {result && (
           <div className="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
-            <h3 className="text-sm font-medium text-gray-300 mb-2">Research Findings:</h3>
-            <div className="text-gray-100 whitespace-pre-wrap">{result}</div>
+            <h3 className="text-sm font-medium text-gray-300 mb-2">Result</h3>
+            <div className="text-gray-200 whitespace-pre-wrap">{result}</div>
           </div>
         )}
       </div>

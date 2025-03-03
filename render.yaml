@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: deep-trends-scheduler
+    env: node
+    buildCommand: npm install
+    startCommand: npm run scheduler
+    envVars:
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: PERPLEXITY_API_KEY
+        sync: false
+    autoDeploy: true 

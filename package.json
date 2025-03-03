@@ -6,22 +6,32 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "scheduler": "ts-node -r dotenv/config src/scripts/runScheduler.ts",
+    "manage-schedules": "ts-node src/scripts/manageSchedules.ts",
+    "scheduler-prod": "ts-node -r dotenv/config src/scripts/productionScheduler.ts"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.18",
     "@heroicons/react": "^2.1.1",
+    "@supabase/supabase-js": "^2.49.1",
+    "@types/express": "^5.0.0",
     "axios": "^1.6.7",
     "date-fns": "^3.3.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "next": "^15.2.0",
     "node-cron": "^3.0.3",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@types/node": "^20.11.20",
+    "@types/node-cron": "^3.0.11",
     "@types/react": "^18.2.58",
     "@types/react-dom": "^18.2.19",
+    "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.17",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.1.0",

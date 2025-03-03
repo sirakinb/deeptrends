@@ -1,19 +1,68 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { supabase } from '@/lib/supabase';
+import type { QuerySchedule } from '@/lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/9hgfpiw3sd4y9giaodcyl01hnkc4jxsh';
 
-export async function POST(request: Request) {
-  try {
-    const { query, frequency, time } = await request.json();
+async function saveSchedule(schedule: QuerySchedule): Promise<void> {
+  const { error } = await supabase
+    .from('schedules')
+    .upsert([schedule])
+    .select();
 
-    // Call Perplexity API
-    let perplexityResponse;
+  if (error) {
+    console.error('Error saving schedule:', error);
+    throw new Error('Failed to save schedule');
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { query, model = 'pplx-7b-online', schedule } = await request.json();
+    const now = new Date().toISOString();
+
+    // If this is a scheduled query, store the schedule and don't execute immediately
+    if (schedule) {
+      const scheduleId = uuidv4();
+      const { error: scheduleError } = await supabase
+        .from('schedules')
+        .insert([{
+          id: scheduleId,
+          query,
+          model,
+          is_active: true,
+          status: 'scheduled',
+          created_at: now,
+          updated_at: now,
+          next_run: schedule.next_run || now,
+          frequency: schedule.frequency,
+          time: schedule.time,
+          week_day: schedule.week_day,
+        }]);
+
+      if (scheduleError) {
+        console.error('Error creating schedule:', scheduleError);
+        return NextResponse.json(
+          { error: 'Failed to create schedule' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ 
+        message: 'Query scheduled successfully',
+        scheduleId 
+      }, { status: 201 });
+    }
+
+    // For immediate queries, execute right away
     try {
-      perplexityResponse = await axios.post(
+      // Call Perplexity API
+      const perplexityResponse = await axios.post(
         'https://api.perplexity.ai/chat/completions',
         {
-          model: 'sonar-deep-research',
+          model,
           messages: [
             {
               role: 'system',
@@ -25,7 +74,7 @@ export async function POST(request: Request) {
             }
           ],
           temperature: 0.2,
-          max_tokens: 4000,
+          max_tokens: model === 'sonar-pro' ? 6000 : 4000,
           top_p: 0.9
         },
         {
@@ -35,55 +84,56 @@ export async function POST(request: Request) {
           }
         }
       );
-    } catch (perplexityError: any) {
-      console.error('Perplexity API Error:', perplexityError.response?.data || perplexityError.message);
+
+      const result = perplexityResponse.data.choices[0].message.content;
+      const citations = perplexityResponse.data.citations || [];
+
+      // Store the result
+      const { error: resultError } = await supabase
+        .from('query_results')
+        .insert([{
+          query,
+          result,
+          model,
+          citations,
+          created_at: now
+        }]);
+
+      if (resultError) {
+        console.error('Error storing result:', resultError);
+        throw new Error('Failed to store result');
+      }
+
+      // Send to Make.com webhook
+      try {
+        await axios.post(MAKE_WEBHOOK_URL, {
+          query,
+          model,
+          result,
+          citations,
+          timestamp: now,
+          type: 'immediate',
+          status: 'success'
+        });
+      } catch (webhookError) {
+        console.error('Failed to send to webhook:', webhookError);
+        // Don't throw here, as we still want to return the result to the user
+      }
+
+      return NextResponse.json({ result });
+
+    } catch (error: any) {
+      console.error('Error executing query:', error);
       return NextResponse.json(
-        { 
-          error: perplexityError.response?.status === 401 
-            ? 'Invalid API key. Please check your Perplexity API key configuration.'
-            : 'Failed to get response from Perplexity API. Please try again.'
-        },
-        { status: perplexityError.response?.status || 500 }
+        { error: error.response?.data?.error || error.message || 'Failed to execute query' },
+        { status: 500 }
       );
     }
 
-    const result = perplexityResponse.data.choices[0].message.content;
-    const citations = perplexityResponse.data.citations || [];
-
-    // Format result with citations if available
-    const formattedResult = citations.length > 0 
-      ? `${result}\n\nSources:\n${citations.map((url: string) => `- ${url}`).join('\n')}`
-      : result;
-
-    // Try to send results to Make.com webhook, but don't fail if it errors
-    try {
-      await axios.post(MAKE_WEBHOOK_URL, {
-        query,
-        frequency,
-        time,
-        result: formattedResult,
-        citations,
-        timestamp: new Date().toISOString(),
-        isImmediate: frequency === 'immediate'
-      });
-    } catch (webhookError) {
-      console.warn('Make.com webhook error (non-critical):', webhookError);
-      // Continue execution - webhook failure shouldn't affect the user experience
-    }
-
-    // Return the result in the response for immediate queries
-    if (frequency === 'immediate') {
-      return NextResponse.json({ 
-        success: true,
-        result: formattedResult
-      });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('General error:', error);
+  } catch (error) {
+    console.error('Error in query handler:', error);
     return NextResponse.json(
-      { error: 'An unexpected error occurred. Please try again.' },
+      { error: 'Failed to process query' },
       { status: 500 }
     );
   }
