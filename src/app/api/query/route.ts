@@ -101,12 +101,23 @@ export async function POST(request: Request) {
             headers: {
               'Authorization': `Bearer ${TEMP_API_KEY}`,
               'Content-Type': 'application/json'
-            }
+            },
+            timeout: 8000, // 8 second timeout
+            timeoutErrorMessage: 'Request to Perplexity API timed out'
           }
         );
 
+        if (!perplexityResponse.data) {
+          throw new Error('No response data from Perplexity API');
+        }
+
         console.log('Received response from Perplexity API');
-        const result = perplexityResponse.data.choices[0].message.content;
+        const result = perplexityResponse.data.choices[0]?.message?.content;
+        
+        if (!result) {
+          throw new Error('Invalid response format from Perplexity API');
+        }
+        
         const citations = perplexityResponse.data.citations || [];
         
         // Store the result
@@ -136,6 +147,8 @@ export async function POST(request: Request) {
             timestamp: now,
             type: 'immediate',
             status: 'success'
+          }, {
+            timeout: 3000 // 3 second timeout for webhook
           });
         } catch (webhookError) {
           console.error('Failed to send to webhook:', webhookError);
@@ -149,19 +162,30 @@ export async function POST(request: Request) {
           status: apiError.response?.status,
           statusText: apiError.response?.statusText,
           data: apiError.response?.data,
-          message: apiError.message
+          message: apiError.message,
+          code: apiError.code
         });
+        
+        let errorMessage = 'Failed to get response from Perplexity API';
+        let statusCode = apiError.response?.status || 500;
+        
+        // Handle specific error cases
+        if (apiError.code === 'ECONNABORTED' || statusCode === 504) {
+          errorMessage = 'Request timed out. Please try again.';
+          statusCode = 504;
+        }
         
         return NextResponse.json(
           { 
-            error: 'Failed to get response from Perplexity API',
+            error: errorMessage,
             details: {
               message: apiError.message,
-              status: apiError.response?.status,
+              status: statusCode,
+              code: apiError.code,
               response: apiError.response?.data
             }
           },
-          { status: apiError.response?.status || 500 }
+          { status: statusCode }
         );
       }
 
