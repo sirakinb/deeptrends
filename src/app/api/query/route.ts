@@ -74,7 +74,15 @@ export async function POST(request: Request) {
       console.log('Processing immediate query');
       
       // TEMPORARY WORKAROUND - Will remove this later
-      const TEMP_API_KEY = process.env.PERPLEXITY_API_KEY || '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';
+      const TEMP_API_KEY = process.env.NEXT_PUBLIC_PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY || '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';
+      
+      // Log environment state (safely)
+      console.log('Environment check:', {
+        hasNextPublicKey: !!process.env.NEXT_PUBLIC_PERPLEXITY_API_KEY,
+        hasLegacyKey: !!process.env.PERPLEXITY_API_KEY,
+        usingFallback: !process.env.NEXT_PUBLIC_PERPLEXITY_API_KEY && !process.env.PERPLEXITY_API_KEY,
+        environment: process.env.VERCEL_ENV || 'local'
+      });
       
       // Call Perplexity API
       try {
