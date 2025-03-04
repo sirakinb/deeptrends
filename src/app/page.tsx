@@ -20,20 +20,21 @@ export default function Home() {
   const isTogglingRef = useRef<{[key: string]: boolean}>({});
 
   // Helper to check if schedules have changed
-  const schedulesEqual = (a: QuerySchedule[], b: QuerySchedule[]): boolean => {
+  const schedulesEqual = (a: QuerySchedule[], b: QuerySchedule[]) => {
     if (a.length !== b.length) return false;
     
-    // Create a map of IDs for quick lookup
-    const bMap = new Map(b.map(item => [item.id, item]));
+    // Create a map of b schedules by ID for faster lookup
+    const bMap = new Map(b.map(schedule => [schedule.id, schedule]));
     
-    // Check if all items in a exist in b with the same values
     return a.every(itemA => {
       const itemB = bMap.get(itemA.id);
       if (!itemB) return false;
       
       // Compare important fields
       return itemA.is_active === itemB.is_active &&
-             itemA.cron === itemB.cron;
+             itemA.frequency === itemB.frequency &&
+             itemA.time === itemB.time &&
+             itemA.week_day === itemB.week_day;
     });
   };
 
@@ -58,7 +59,7 @@ export default function Home() {
         
         // Create a map of queries to detect duplicates by content
         data.forEach(schedule => {
-          const key = `${schedule.query}|${schedule.cron}`;
+          const key = `${schedule.query}|${schedule.frequency}|${schedule.time}|${schedule.week_day || ''}`;
           dataQueries.set(key, schedule);
         });
         
@@ -69,7 +70,7 @@ export default function Home() {
             pendingIdsToRemove.add(pending.id);
           } else {
             // Also check by content to catch cases where the ID might be different
-            const key = `${pending.query}|${pending.cron}`;
+            const key = `${pending.query}|${pending.frequency}|${pending.time}|${pending.week_day || ''}`;
             if (dataQueries.has(key)) {
               pendingIdsToRemove.add(pending.id);
             }
@@ -117,9 +118,9 @@ export default function Home() {
     const tempId = Date.now().toString();
     
     // Check if we already have a pending schedule with the same query
-    const key = `${schedule.query}|${schedule.cron}`;
+    const key = `${schedule.query}|${schedule.frequency}|${schedule.time}|${schedule.week_day || ''}`;
     const hasDuplicate = pendingSchedules.some(p => 
-      `${p.query}|${p.cron}` === key
+      `${p.query}|${p.frequency}|${p.time}|${p.week_day || ''}` === key
     );
     
     // Don't add a duplicate pending schedule
@@ -129,14 +130,17 @@ export default function Home() {
     }
     
     // Create a temporary schedule object with a pending status
-    const tempSchedule: ExtendedQuerySchedule = {
+    const tempSchedule: QuerySchedule & { isPending?: boolean } = {
       id: tempId,
       query: schedule.query!,
-      cron: schedule.cron!,
+      frequency: schedule.frequency!,
+      time: schedule.time!,
+      week_day: schedule.week_day,
+      model: schedule.model!,
       is_active: true,
+      status: 'scheduled',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      model: schedule.model,
       isPending: true // UI-only flag to indicate pending state
     };
     
