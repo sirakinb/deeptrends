@@ -22,13 +22,13 @@ async function processQuery(schedule) {
     const { error: updateError } = await supabase
       .from('schedules')
       .update({
-        last_run_time: new Date().toISOString(),
+        last_run: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', schedule.id);
       
     if (updateError) {
-      console.error(`Error updating last_run_time for schedule ${schedule.id}:`, updateError);
+      console.error(`Error updating last_run for schedule ${schedule.id}:`, updateError);
     }
     
     // Call Perplexity API
@@ -41,7 +41,19 @@ async function processQuery(schedule) {
       'https://api.perplexity.ai/chat/completions',
       {
         model: schedule.model || 'sonar-small-online',
-        messages: [{ role: 'user', content: schedule.query_text }]
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful research assistant. Provide detailed, well-researched answers.'
+          },
+          {
+            role: 'user',
+            content: schedule.query_text
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: schedule.model === 'sonar-pro' ? 6000 : 4000,
+        top_p: 0.9
       },
       {
         headers: {
@@ -59,7 +71,9 @@ async function processQuery(schedule) {
       .from('query_results')
       .insert({
         schedule_id: schedule.id,
+        query: schedule.query_text,
         result_text: content,
+        model: schedule.model || 'sonar-small-online',
         created_at: new Date().toISOString()
       });
       
@@ -147,6 +161,9 @@ async function runOnce() {
       }
       
       console.log(`Updated last_run time for schedule ${schedule.id}`);
+      
+      // Actually process the query - this was missing!
+      await processQuery(schedule);
     }
     
     console.log('Scheduler completed successfully');
