@@ -85,29 +85,29 @@ export async function POST(request: Request) {
         directAccess: typeof apiKeyFromEnv !== 'undefined',
         processAccess: typeof apiKeyFromProcess !== 'undefined',
         environment: process.env.VERCEL_ENV || 'local',
-        node_env: process.env.NODE_ENV
+        node_env: process.env.NODE_ENV,
+        keyLength: apiKeyFromEnv?.length || apiKeyFromProcess?.length || 0,
+        keyStart: (apiKeyFromEnv || apiKeyFromProcess || '').substring(0, 4) + '...'
       });
       
       // Use the first available method that works
       const perplexityApiKey = apiKeyFromEnv || apiKeyFromProcess;
       
-      if (!perplexityApiKey || typeof perplexityApiKey !== 'string' || !perplexityApiKey.startsWith('pplx-')) {
+      if (!perplexityApiKey || typeof perplexityApiKey !== 'string') {
         console.error('PERPLEXITY_API_KEY validation failed:', {
           exists: !!perplexityApiKey,
           type: typeof perplexityApiKey,
-          startsCorrectly: perplexityApiKey?.startsWith('pplx-'),
-          length: perplexityApiKey?.length
+          length: perplexityApiKey?.length || 0
         });
         
         return NextResponse.json(
           { 
-            error: 'API configuration error: Invalid PERPLEXITY_API_KEY format',
+            error: 'API configuration error: Missing PERPLEXITY_API_KEY',
             details: {
               exists: !!perplexityApiKey,
               type: typeof perplexityApiKey,
               environment: process.env.VERCEL_ENV || 'local',
-              node_env: process.env.NODE_ENV,
-              startsWithPplx: perplexityApiKey?.startsWith('pplx-')
+              node_env: process.env.NODE_ENV
             }
           },
           { status: 500 }
@@ -120,7 +120,6 @@ export async function POST(request: Request) {
         url: 'https://api.perplexity.ai/chat/completions',
         model,
         hasAuth: true,
-        keyStartsWithPplx: perplexityApiKey.startsWith('pplx-'),
         authHeaderLength: perplexityApiKey.length
       };
       console.log('API request configuration:', apiConfig);
