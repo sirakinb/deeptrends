@@ -3,12 +3,11 @@ import { supabase } from '@/lib/supabase';
 import { NextRequest } from 'next/server';
 
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    const scheduleId = String(id);
+    const scheduleId = String(context.params.id);
     const updates = await request.json();
 
     const { data, error } = await supabase
