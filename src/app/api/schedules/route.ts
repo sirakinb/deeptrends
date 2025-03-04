@@ -27,9 +27,9 @@ export async function GET() {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const schedule = await request.json();
+    const schedule = await req.json();
     const now = new Date().toISOString();
     
     const { data, error } = await supabase

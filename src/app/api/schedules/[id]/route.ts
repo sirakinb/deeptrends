@@ -2,13 +2,19 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { NextRequest } from 'next/server';
 
+interface RequestContext {
+  params: {
+    id: string;
+  };
+}
+
 export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: RequestContext
 ) {
   try {
     const scheduleId = String(params.id);
-    const updates = await request.json();
+    const updates = await req.json();
 
     const { data, error } = await supabase
       .from('schedules')
@@ -43,8 +49,8 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: RequestContext
 ) {
   try {
     const scheduleId = String(params.id);
