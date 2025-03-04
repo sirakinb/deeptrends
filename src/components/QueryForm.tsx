@@ -5,7 +5,7 @@ import { Listbox } from '@headlessui/react';
 import { ChevronUpDownIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import type { QuerySchedule } from '@/lib/supabase';
 import axios from 'axios';
-import { QueryFrequency, WeekDay, PerplexityModel } from '@/types';
+import type { QueryFrequency, WeekDay, PerplexityModel } from '@/types';
 
 const frequencies = [
   { id: 'immediate', name: 'Immediate' },
@@ -24,8 +24,8 @@ const weekDays = [
 ] as const;
 
 const models = [
-  { id: 'sonar-deep-research', name: 'Sonar Deep Research' },
-  { id: 'sonar-pro', name: 'Sonar Pro' },
+  { id: 'sonar-deep-research' as const, name: 'Sonar Deep Research' },
+  { id: 'sonar-pro' as const, name: 'Sonar Pro' },
 ] as const;
 
 interface FormData {
@@ -43,7 +43,7 @@ interface QueryFormProps {
 export function QueryForm({ onSubmit }: QueryFormProps) {
   const [formData, setFormData] = useState<FormData>({
     query: '',
-    model: 'pplx-7b-online',
+    model: 'sonar-pro',
     frequency: 'immediate',
     time: '09:00',
     week_day: 'monday',
@@ -107,13 +107,7 @@ export function QueryForm({ onSubmit }: QueryFormProps) {
         setResult('Schedule created successfully!');
         
         // Reset form for scheduled queries
-        setFormData({
-          query: '',
-          model: 'pplx-7b-online',
-          frequency: 'immediate',
-          time: '09:00',
-          week_day: 'monday',
-        });
+        resetForm();
       }
     } catch (error: any) {
       console.error('Error submitting query:', error);
@@ -123,6 +117,16 @@ export function QueryForm({ onSubmit }: QueryFormProps) {
       setIsSubmitting(false);
       setProgress(0);
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      query: '',
+      model: 'sonar-pro',
+      frequency: 'immediate',
+      time: '09:00',
+      week_day: 'monday',
+    });
   };
 
   const selectedFrequency = frequencies.find(f => f.id === formData.frequency);
