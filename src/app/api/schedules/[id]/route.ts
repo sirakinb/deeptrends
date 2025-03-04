@@ -2,12 +2,18 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { NextRequest } from 'next/server';
 
+type RouteContext = {
+  params: {
+    id: string;
+  };
+};
+
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
-    const scheduleId = String(context.params.id);
+    const scheduleId = String(params.id);
     const updates = await request.json();
 
     const { data, error } = await supabase
@@ -44,10 +50,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
-    const scheduleId = String(context.params.id);
+    const scheduleId = String(params.id);
     console.log(`Attempting to delete schedule: ${scheduleId}`);
     
     const { error } = await supabase
