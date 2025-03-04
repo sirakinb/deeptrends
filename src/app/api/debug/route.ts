@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   // Check if environment variables are set
-  const hasPerplexityKey = !!process.env.PERPLEXITY_API_KEY;
-  const perplexityKeyFirstChars = hasPerplexityKey 
-    ? `${process.env.PERPLEXITY_API_KEY.substring(0, 3)}...${process.env.PERPLEXITY_API_KEY.substring(process.env.PERPLEXITY_API_KEY.length - 3)}` 
+  const perplexityApiKey = process.env.PERPLEXITY_API_KEY || '';
+  const hasPerplexityKey = perplexityApiKey.length > 0;
+  
+  // Only show preview if the key exists
+  const perplexityKeyFirstChars = hasPerplexityKey && perplexityApiKey.length > 6
+    ? `${perplexityApiKey.substring(0, 3)}...${perplexityApiKey.substring(perplexityApiKey.length - 3)}`
     : 'not set';
   
   const hasSupabaseUrl = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
