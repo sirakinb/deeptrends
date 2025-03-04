@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       console.log('Processing immediate query');
       
       // TEMPORARY WORKAROUND - Will remove this later
-      const TEMP_API_KEY = process.env.PERPLEXITY_API_KEY || 'YOUR_API_KEY_HERE'; // Replace this with your actual key
+      const TEMP_API_KEY = process.env.PERPLEXITY_API_KEY || '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';
       
       // Call Perplexity API
       try {
