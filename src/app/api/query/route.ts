@@ -77,35 +77,37 @@ export async function POST(request: Request) {
       console.log('Environment:', process.env.VERCEL_ENV || 'local');
       console.log('Checking environment variables...');
       
-      // Log all environment variables (safely)
-      const allEnvVars = Object.keys(process.env).sort().map(key => {
-        const value = process.env[key];
-        // Only show if value exists and mask sensitive data
-        return `${key}: ${value ? (key.includes('KEY') || key.includes('SECRET') ? '[HIDDEN]' : value) : 'undefined'}`;
+      // Try different ways to access the API key
+      const apiKeyFromEnv = process.env.PERPLEXITY_API_KEY;
+      const apiKeyFromProcess = process.env['PERPLEXITY_API_KEY'];
+      
+      console.log('API Key access methods:', {
+        directAccess: typeof apiKeyFromEnv !== 'undefined',
+        processAccess: typeof apiKeyFromProcess !== 'undefined',
+        environment: process.env.VERCEL_ENV || 'local',
+        node_env: process.env.NODE_ENV
       });
-      console.log('All environment variables:', allEnvVars);
       
-      // Check if Perplexity API key is set
-      const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
-      console.log('API Key type:', typeof perplexityApiKey);
-      console.log('API Key length:', perplexityApiKey?.length);
+      // Use the first available method that works
+      const perplexityApiKey = apiKeyFromEnv || apiKeyFromProcess;
       
-      if (!perplexityApiKey || perplexityApiKey.trim() === '') {
+      if (!perplexityApiKey || typeof perplexityApiKey !== 'string' || !perplexityApiKey.startsWith('pplx-')) {
         console.error('PERPLEXITY_API_KEY validation failed:', {
           exists: !!perplexityApiKey,
-          isEmpty: perplexityApiKey === '',
-          isWhitespace: perplexityApiKey?.trim() === '',
-          type: typeof perplexityApiKey
+          type: typeof perplexityApiKey,
+          startsCorrectly: perplexityApiKey?.startsWith('pplx-'),
+          length: perplexityApiKey?.length
         });
         
         return NextResponse.json(
           { 
-            error: 'API configuration error: Invalid or empty PERPLEXITY_API_KEY',
+            error: 'API configuration error: Invalid PERPLEXITY_API_KEY format',
             details: {
               exists: !!perplexityApiKey,
               type: typeof perplexityApiKey,
               environment: process.env.VERCEL_ENV || 'local',
-              node_env: process.env.NODE_ENV
+              node_env: process.env.NODE_ENV,
+              startsWithPplx: perplexityApiKey?.startsWith('pplx-')
             }
           },
           { status: 500 }
@@ -118,6 +120,7 @@ export async function POST(request: Request) {
         url: 'https://api.perplexity.ai/chat/completions',
         model,
         hasAuth: true,
+        keyStartsWithPplx: perplexityApiKey.startsWith('pplx-'),
         authHeaderLength: perplexityApiKey.length
       };
       console.log('API request configuration:', apiConfig);
