@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import type { QuerySchedule } from '@/lib/supabase';
 
@@ -27,9 +27,9 @@ export async function GET() {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const schedule = await req.json();
+    const schedule = await request.json();
     const now = new Date().toISOString();
     
     const { data, error } = await supabase

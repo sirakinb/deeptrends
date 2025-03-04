@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import axios from 'axios';
 import { supabase } from '@/lib/supabase';
 import type { QuerySchedule } from '@/lib/supabase';
@@ -18,9 +18,9 @@ async function saveSchedule(schedule: QuerySchedule): Promise<void> {
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const { query, model = 'pplx-7b-online', schedule } = await req.json();
+    const { query, model = 'pplx-7b-online', schedule } = await request.json();
     const now = new Date().toISOString();
 
     // If this is a scheduled query, store the schedule and don't execute immediately
