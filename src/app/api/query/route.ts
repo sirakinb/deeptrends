@@ -76,103 +76,140 @@ export async function POST(request: Request) {
       // Add detailed environment variable logging
       console.log('Environment:', process.env.VERCEL_ENV || 'local');
       console.log('Checking environment variables...');
-      const envVars = {
-        PERPLEXITY_API_KEY: process.env.PERPLEXITY_API_KEY ? 'set' : 'not set',
-        VERCEL_ENV: process.env.VERCEL_ENV || 'not set',
-        NODE_ENV: process.env.NODE_ENV || 'not set'
-      };
-      console.log('Environment variables state:', envVars);
+      
+      // Log all environment variables (safely)
+      const allEnvVars = Object.keys(process.env).sort().map(key => {
+        const value = process.env[key];
+        // Only show if value exists and mask sensitive data
+        return `${key}: ${value ? (key.includes('KEY') || key.includes('SECRET') ? '[HIDDEN]' : value) : 'undefined'}`;
+      });
+      console.log('All environment variables:', allEnvVars);
       
       // Check if Perplexity API key is set
-      const perplexityApiKey = process.env.PERPLEXITY_API_KEY || '';
-      if (!perplexityApiKey) {
-        console.error('PERPLEXITY_API_KEY environment variable is not set in Vercel');
+      const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
+      console.log('API Key type:', typeof perplexityApiKey);
+      console.log('API Key length:', perplexityApiKey?.length);
+      
+      if (!perplexityApiKey || perplexityApiKey.trim() === '') {
+        console.error('PERPLEXITY_API_KEY validation failed:', {
+          exists: !!perplexityApiKey,
+          isEmpty: perplexityApiKey === '',
+          isWhitespace: perplexityApiKey?.trim() === '',
+          type: typeof perplexityApiKey
+        });
+        
         return NextResponse.json(
           { 
-            error: 'API configuration error: PERPLEXITY_API_KEY is not set in environment variables. Please configure it in Vercel dashboard.',
-            details: 'This is a server configuration issue. The API key must be set in the Vercel project settings under Environment Variables.',
-            environment: process.env.VERCEL_ENV || 'local',
-            debug: envVars
+            error: 'API configuration error: Invalid or empty PERPLEXITY_API_KEY',
+            details: {
+              exists: !!perplexityApiKey,
+              type: typeof perplexityApiKey,
+              environment: process.env.VERCEL_ENV || 'local',
+              node_env: process.env.NODE_ENV
+            }
           },
           { status: 500 }
         );
       }
       
-      // Log API request preparation
+      // Log API request preparation (safely)
       console.log('Preparing Perplexity API request with model:', model);
       const apiConfig = {
         url: 'https://api.perplexity.ai/chat/completions',
         model,
-        hasAuth: !!perplexityApiKey
+        hasAuth: true,
+        authHeaderLength: perplexityApiKey.length
       };
       console.log('API request configuration:', apiConfig);
       
       // Call Perplexity API
-      console.log('Calling Perplexity API with model:', model);
-      const perplexityResponse = await axios.post(
-        'https://api.perplexity.ai/chat/completions',
-        {
-          model,
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a helpful research assistant. Provide detailed, well-researched answers.'
-            },
-            {
-              role: 'user',
-              content: query
-            }
-          ],
-          temperature: 0.2,
-          max_tokens: model === 'sonar-pro' ? 6000 : 4000,
-          top_p: 0.9
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${perplexityApiKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      console.log('Received response from Perplexity API');
-      const result = perplexityResponse.data.choices[0].message.content;
-      const citations = perplexityResponse.data.citations || [];
-
-      // Store the result
-      console.log('Storing result in Supabase');
-      const { error: resultError } = await supabase
-        .from('query_results')
-        .insert([{
-          query,
-          result_text: result, // Make sure field name matches your database schema
-          model,
-          created_at: now
-        }]);
-
-      if (resultError) {
-        console.error('Error storing result:', resultError);
-        // Continue anyway to return the result to the user
-      }
-
-      // Send to Make.com webhook
       try {
-        console.log('Sending to Make.com webhook');
-        await axios.post(MAKE_WEBHOOK_URL, {
-          query,
-          model,
-          result,
-          citations,
-          timestamp: now,
-          type: 'immediate',
-          status: 'success'
-        });
-      } catch (webhookError) {
-        console.error('Failed to send to webhook:', webhookError);
-        // Don't throw here, as we still want to return the result to the user
-      }
+        console.log('Calling Perplexity API with model:', model);
+        const perplexityResponse = await axios.post(
+          'https://api.perplexity.ai/chat/completions',
+          {
+            model,
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a helpful research assistant. Provide detailed, well-researched answers.'
+              },
+              {
+                role: 'user',
+                content: query
+              }
+            ],
+            temperature: 0.2,
+            max_tokens: model === 'sonar-pro' ? 6000 : 4000,
+            top_p: 0.9
+          },
+          {
+            headers: {
+              'Authorization': `Bearer ${perplexityApiKey}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
 
-      return NextResponse.json({ result });
+        console.log('Received response from Perplexity API');
+        const result = perplexityResponse.data.choices[0].message.content;
+        const citations = perplexityResponse.data.citations || [];
+        
+        // Store the result
+        console.log('Storing result in Supabase');
+        const { error: resultError } = await supabase
+          .from('query_results')
+          .insert([{
+            query,
+            result_text: result,
+            model,
+            created_at: now
+          }]);
+
+        if (resultError) {
+          console.error('Error storing result:', resultError);
+          // Continue anyway to return the result to the user
+        }
+
+        // Send to Make.com webhook
+        try {
+          console.log('Sending to Make.com webhook');
+          await axios.post(MAKE_WEBHOOK_URL, {
+            query,
+            model,
+            result,
+            citations,
+            timestamp: now,
+            type: 'immediate',
+            status: 'success'
+          });
+        } catch (webhookError) {
+          console.error('Failed to send to webhook:', webhookError);
+          // Don't throw here, as we still want to return the result to the user
+        }
+
+        return NextResponse.json({ result });
+        
+      } catch (apiError: any) {
+        console.error('Perplexity API error:', {
+          status: apiError.response?.status,
+          statusText: apiError.response?.statusText,
+          data: apiError.response?.data,
+          message: apiError.message
+        });
+        
+        return NextResponse.json(
+          { 
+            error: 'Failed to get response from Perplexity API',
+            details: {
+              message: apiError.message,
+              status: apiError.response?.status,
+              response: apiError.response?.data
+            }
+          },
+          { status: apiError.response?.status || 500 }
+        );
+      }
 
     } catch (error: any) {
       console.error('Error executing query:', error);
