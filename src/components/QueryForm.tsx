@@ -5,11 +5,12 @@ import { Listbox } from '@headlessui/react';
 import { ChevronUpDownIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import type { QuerySchedule } from '@/lib/supabase';
 import axios from 'axios';
+import { QueryFrequency, WeekDay, PerplexityModel } from '@/types';
 
 const frequencies = [
-  { id: 'immediate', name: 'Run Now', description: 'Execute the query immediately' },
-  { id: 'daily', name: 'Daily', description: 'Run every day at the specified time' },
-  { id: 'weekly', name: 'Weekly', description: 'Run once a week on your chosen day' },
+  { id: 'immediate', name: 'Immediate' },
+  { id: 'daily', name: 'Daily' },
+  { id: 'weekly', name: 'Weekly' },
 ] as const;
 
 const weekDays = [
@@ -25,13 +26,11 @@ const weekDays = [
 const models = [
   { id: 'sonar-deep-research', name: 'Sonar Deep Research' },
   { id: 'sonar-pro', name: 'Sonar Pro' },
-];
-
-type WeekDay = typeof weekDays[number]['id'];
+] as const;
 
 interface FormData {
   query: string;
-  model: string;
+  model: PerplexityModel;
   frequency: QueryFrequency;
   time: string;
   week_day: WeekDay;
@@ -205,7 +204,6 @@ export function QueryForm({ onSubmit }: QueryFormProps) {
                   >
                     <div>
                       <div className="font-medium">{frequency.name}</div>
-                      <div className="text-sm text-gray-400">{frequency.description}</div>
                     </div>
                   </Listbox.Option>
                 ))}
