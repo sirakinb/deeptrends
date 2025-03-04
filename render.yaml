@@ -1,9 +1,10 @@
 services:
-  - type: web
+  - type: cron
     name: deep-trends-scheduler
     env: node
+    schedule: "*/5 * * * *"  # Run every 5 minutes
     buildCommand: npm install
-    startCommand: npm run scheduler
+    startCommand: node src/scripts/runScheduler.ts
     envVars:
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
