@@ -74,7 +74,8 @@ export async function POST(request: Request) {
       console.log('Processing immediate query');
       
       // Check if Perplexity API key is set
-      if (!process.env.PERPLEXITY_API_KEY) {
+      const perplexityApiKey = process.env.PERPLEXITY_API_KEY || '';
+      if (!perplexityApiKey) {
         console.error('PERPLEXITY_API_KEY is not set');
         return NextResponse.json(
           { error: 'API key configuration error' },
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
         },
         {
           headers: {
-            'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+            'Authorization': `Bearer ${perplexityApiKey}`,
             'Content-Type': 'application/json'
           }
         }
