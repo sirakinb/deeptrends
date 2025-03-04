@@ -11,4 +11,6 @@ services:
         sync: false
       - key: PERPLEXITY_API_KEY
         sync: false
+      - key: DATABASE_URL
+        sync: false
     autoDeploy: true 
