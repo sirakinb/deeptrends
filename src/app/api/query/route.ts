@@ -76,9 +76,12 @@ export async function POST(request: Request) {
       // Check if Perplexity API key is set
       const perplexityApiKey = process.env.PERPLEXITY_API_KEY || '';
       if (!perplexityApiKey) {
-        console.error('PERPLEXITY_API_KEY is not set');
+        console.error('PERPLEXITY_API_KEY environment variable is not set in Vercel');
         return NextResponse.json(
-          { error: 'API key configuration error' },
+          { 
+            error: 'API configuration error: PERPLEXITY_API_KEY is not set in environment variables. Please configure it in Vercel dashboard.',
+            details: 'This is a server configuration issue. The API key must be set in the Vercel project settings under Environment Variables.'
+          },
           { status: 500 }
         );
       }
