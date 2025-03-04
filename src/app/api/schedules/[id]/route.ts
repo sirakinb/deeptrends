@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+type Params = { id: string };
+
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
     const scheduleId = String(params.id);
@@ -43,7 +45,7 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Params }
 ) {
   try {
     const scheduleId = String(params.id);
