@@ -73,6 +73,16 @@ export async function POST(request: Request) {
     try {
       console.log('Processing immediate query');
       
+      // Add detailed environment variable logging
+      console.log('Environment:', process.env.VERCEL_ENV || 'local');
+      console.log('Checking environment variables...');
+      const envVars = {
+        PERPLEXITY_API_KEY: process.env.PERPLEXITY_API_KEY ? 'set' : 'not set',
+        VERCEL_ENV: process.env.VERCEL_ENV || 'not set',
+        NODE_ENV: process.env.NODE_ENV || 'not set'
+      };
+      console.log('Environment variables state:', envVars);
+      
       // Check if Perplexity API key is set
       const perplexityApiKey = process.env.PERPLEXITY_API_KEY || '';
       if (!perplexityApiKey) {
@@ -80,11 +90,22 @@ export async function POST(request: Request) {
         return NextResponse.json(
           { 
             error: 'API configuration error: PERPLEXITY_API_KEY is not set in environment variables. Please configure it in Vercel dashboard.',
-            details: 'This is a server configuration issue. The API key must be set in the Vercel project settings under Environment Variables.'
+            details: 'This is a server configuration issue. The API key must be set in the Vercel project settings under Environment Variables.',
+            environment: process.env.VERCEL_ENV || 'local',
+            debug: envVars
           },
           { status: 500 }
         );
       }
+      
+      // Log API request preparation
+      console.log('Preparing Perplexity API request with model:', model);
+      const apiConfig = {
+        url: 'https://api.perplexity.ai/chat/completions',
+        model,
+        hasAuth: !!perplexityApiKey
+      };
+      console.log('API request configuration:', apiConfig);
       
       // Call Perplexity API
       console.log('Calling Perplexity API with model:', model);
