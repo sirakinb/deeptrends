@@ -2,15 +2,9 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { NextRequest } from 'next/server';
 
-type RouteContext = {
-  params: {
-    id: string;
-  };
-};
-
 export async function PUT(
   request: NextRequest,
-  { params }: RouteContext
+  { params }: { params: { id: string } }
 ) {
   try {
     const scheduleId = String(params.id);
@@ -50,7 +44,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: RouteContext
+  { params }: { params: { id: string } }
 ) {
   try {
     const scheduleId = String(params.id);
