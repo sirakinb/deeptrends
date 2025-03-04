@@ -73,16 +73,21 @@ export async function POST(request: Request) {
     try {
       console.log('Processing immediate query');
       
-      // TEMPORARY WORKAROUND - Will remove this later
-      const TEMP_API_KEY = process.env.NEXT_PUBLIC_PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY || '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';
+      const apiKey = process.env.NEXT_PUBLIC_PERPLEXITY_API_KEY;
       
-      // Log environment state (safely)
-      console.log('Environment check:', {
-        hasNextPublicKey: !!process.env.NEXT_PUBLIC_PERPLEXITY_API_KEY,
-        hasLegacyKey: !!process.env.PERPLEXITY_API_KEY,
-        usingFallback: !process.env.NEXT_PUBLIC_PERPLEXITY_API_KEY && !process.env.PERPLEXITY_API_KEY,
-        environment: process.env.VERCEL_ENV || 'local'
-      });
+      if (!apiKey) {
+        console.error('Missing NEXT_PUBLIC_PERPLEXITY_API_KEY');
+        return NextResponse.json(
+          { 
+            error: 'API configuration error: Missing API key',
+            details: {
+              environment: process.env.VERCEL_ENV || 'local',
+              message: 'NEXT_PUBLIC_PERPLEXITY_API_KEY is not set in environment variables'
+            }
+          },
+          { status: 500 }
+        );
+      }
       
       // Call Perplexity API
       try {
@@ -107,7 +112,7 @@ export async function POST(request: Request) {
           },
           {
             headers: {
-              'Authorization': `Bearer ${TEMP_API_KEY}`,
+              'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json'
             },
             timeout: 8000, // 8 second timeout
