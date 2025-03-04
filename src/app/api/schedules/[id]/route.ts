@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+// Type for dynamic route parameters
 type Params = { id: string };
 
 export async function PUT(
   request: Request,
-  { params }: { params: Params }
+  { params }: { params: { id: string } }
 ) {
   try {
     const scheduleId = String(params.id);
@@ -45,7 +46,7 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Params }
+  { params }: { params: { id: string } }
 ) {
   try {
     const scheduleId = String(params.id);
