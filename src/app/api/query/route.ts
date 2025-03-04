@@ -75,6 +75,14 @@ export async function POST(request: Request) {
       
       const apiKey = process.env.NEXT_PUBLIC_PERPLEXITY_API_KEY;
       
+      // Log API key info (safely)
+      console.log('API key check:', {
+        exists: !!apiKey,
+        length: apiKey?.length || 0,
+        prefix: apiKey?.substring(0, 5) || 'none',
+        environment: process.env.VERCEL_ENV || 'local'
+      });
+      
       if (!apiKey) {
         console.error('Missing NEXT_PUBLIC_PERPLEXITY_API_KEY');
         return NextResponse.json(
@@ -91,7 +99,12 @@ export async function POST(request: Request) {
       
       // Call Perplexity API
       try {
-        console.log('Calling Perplexity API');
+        console.log('Calling Perplexity API with config:', {
+          model,
+          maxTokens: model === 'sonar-pro' ? 6000 : 4000,
+          queryLength: query.length
+        });
+
         const perplexityResponse = await axios.post(
           'https://api.perplexity.ai/chat/completions',
           {
@@ -115,10 +128,11 @@ export async function POST(request: Request) {
               'Authorization': `Bearer ${apiKey}`,
               'Content-Type': 'application/json'
             },
-            timeout: 8000, // 8 second timeout
-            timeoutErrorMessage: 'Request to Perplexity API timed out'
+            timeout: 25000 // Increased to 25 seconds
           }
         );
+
+        console.log('API Response status:', perplexityResponse.status);
 
         if (!perplexityResponse.data) {
           throw new Error('No response data from Perplexity API');
